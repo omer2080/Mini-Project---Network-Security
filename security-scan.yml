@@ -1,0 +1,54 @@
+name: Security Scan
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+        # freshclam downloads the latest virus definition databases from ClamAV's update servers.
+        # Workflow will continue even if freshclam fails
+      - name: Set up ClamAV
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clamav clamav-daemon
+          sudo freshclam || echo "Failed to update ClamAV database"
+
+        # Stops services and removes lock files to prevent conflicts
+      - name: Ensure ClamAV services are stopped
+        run: |
+          sudo systemctl stop clamav-freshclam || true
+          sudo systemctl stop clamav-daemon || true
+          sudo rm -f /var/log/clamav/freshclam.log.lock
+
+        # (-r): Runs the ClamAV scan recursively
+      - name: Run ClamAV scan
+        run: |
+          echo "Starting ClamAV scan..."
+          clamscan -r --log=/tmp/scan.log -i . || echo "ClamAV scan completed, but there were issues"
+          if [ -f /tmp/scan.log ]; then
+            cat /tmp/scan.log
+          else
+            echo "No scan log file found"
+          fi
+
+      - name: Upload ClamAV scan results
+        uses: actions/upload-artifact@v3
+        with:
+          name: clamav-scan-results
+          path: /tmp/scan.log
+
+      # Runs only if the previous steps encountered failures
+      - name: Notify if scan found issues
+        if: ${{ failure() }}
+        run: echo "ClamAV scan found issues."
