@@ -16,7 +16,9 @@ To use this workflow, follow the steps below:
    cd <your-repo>
    mkdir -p .github/workflows
    cd .github/workflows
+
    [here copy the security-scan.yml file]
+
    git add .github/workflows/security-scan.yml
    git commit -m "Add security scan workflow"
    git push
